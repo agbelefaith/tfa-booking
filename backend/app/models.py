@@ -1,5 +1,5 @@
 """Database tables, written as Python classes."""
-from datetime import datetime
+from datetime import datetime, time
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import DateTime, String, func
 
@@ -45,3 +45,29 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class WeeklyHours(Base):
+    """opening hours of the business"""
+
+    __tablename__ = "weekly_hours"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day_of_week: Mapped[int]
+    opens_at: Mapped[time]
+    closes_at: Mapped[time]
+
+
+class TimeOff(Base):
+    """Holidays or days off when you can't be booked."""
+
+    __tablename__ = "time_off"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    starts_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True)
+    )
+    ends_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True)
+    )
+    reason: Mapped[str | None] = mapped_column(String(200))
