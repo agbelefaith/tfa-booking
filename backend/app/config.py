@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "TFA Booking"
     environment: str = "development"
     database_url: str = "postgresql://postgres:postgres@localhost:5432/tfa_booking"
+    business_timezone: str = "Europe/Dublin"
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
 
