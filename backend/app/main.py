@@ -1,10 +1,11 @@
 """Entry point for the FastAPI backend."""
 import logging
+import secrets
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import stripe
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -13,7 +14,15 @@ from app.availability import find_free_slots
 from app.config import settings
 from app.db import get_db
 from app.models import AddOn, Booking, BookingAddOn, Customer, Service, StripeEvent, TimeOff, WeeklyHours
-from app.schemas import AddOnOut, BookingCreate, BookingOut, CheckoutOut, ServiceOut
+from app.schemas import (
+    AddOnOut,
+    BookingCreate,
+    BookingCreated,
+    BookingOut,
+    CancelRequest,
+    CheckoutOut,
+    ServiceOut,
+)
 from app import payments
 
 app = FastAPI(title=settings.app_name)
@@ -109,7 +118,7 @@ def get_availability(
     return free_slots_for(db, day, service, add_ons)
 
 
-@app.post("/bookings", response_model=BookingOut, status_code=201)
+@app.post("/bookings", response_model=BookingCreated, status_code=201)
 def create_booking(request: BookingCreate, db: Session = Depends(get_db)):
     """Hold a slot for a client. It stays 'pending' until the deposit is paid."""
     service, add_ons = load_service_and_add_ons(db, request.service_id, request.add_on_ids)
@@ -240,3 +249,76 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
     return {"received": True}
+
+
+@app.post("/bookings/{booking_id}/cancel", response_model=BookingOut)
+def cancel_booking(booking_id: int, request: CancelRequest, db: Session = Depends(get_db)):
+    """A client cancels their own booking. Deposits are non-refundable."""
+    booking = db.get(Booking, booking_id)
+    # Same error for "no such booking" and "wrong token", so nobody can guess ids.
+    if booking is None or not booking.manage_token or not secrets.compare_digest(
+        booking.manage_token, request.token
+    ):
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.status not in ACTIVE_STATUSES:
+        raise HTTPException(status_code=409, detail="This booking can't be cancelled")
+
+    # Unpaid? Close the payment page so it can't be paid after cancelling.
+    if booking.status == "pending" and booking.stripe_checkout_session_id:
+        payments.expire_checkout(booking.stripe_checkout_session_id)
+
+    booking.status = "cancelled"
+    db.commit()
+    return booking
+
+
+def require_admin(x_admin_key: str = Header(default="")):
+    """Only you (with the admin key) can use admin endpoints."""
+    if not settings.admin_api_key or not secrets.compare_digest(x_admin_key, settings.admin_api_key):
+        raise HTTPException(status_code=401, detail="Admin key required")
+
+
+@app.post("/admin/bookings/{booking_id}/cancel", response_model=BookingOut, dependencies=[Depends(require_admin)])
+def business_cancel_booking(booking_id: int, db: Session = Depends(get_db)):
+    """You have to cancel (sick, emergency): the client gets their deposit back."""
+    booking = db.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.status not in ACTIVE_STATUSES:
+        raise HTTPException(status_code=409, detail="This booking can't be cancelled")
+
+    if booking.status == "confirmed" and booking.stripe_payment_intent_id:
+        refund = payments.refund_deposit(booking.id, booking.stripe_payment_intent_id)
+        booking.stripe_refund_id = refund.id
+    elif booking.stripe_checkout_session_id:
+        payments.expire_checkout(booking.stripe_checkout_session_id)
+
+    booking.status = "business_cancelled"
+    db.commit()
+    return booking
+
+
+@app.post("/admin/bookings/{booking_id}/no-show", response_model=BookingOut, dependencies=[Depends(require_admin)])
+def mark_no_show(booking_id: int, db: Session = Depends(get_db)):
+    """The client didn't turn up. You keep the deposit."""
+    return set_final_status(db, booking_id, "no_show")
+
+
+@app.post("/admin/bookings/{booking_id}/complete", response_model=BookingOut, dependencies=[Depends(require_admin)])
+def mark_completed(booking_id: int, db: Session = Depends(get_db)):
+    """The appointment happened."""
+    return set_final_status(db, booking_id, "completed")
+
+
+def set_final_status(db: Session, booking_id: int, status: str) -> Booking:
+    """Close off a confirmed booking once its start time has passed."""
+    booking = db.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.status != "confirmed":
+        raise HTTPException(status_code=409, detail="Only confirmed bookings can be closed off")
+    if booking.starts_at > datetime.now(booking.starts_at.tzinfo):
+        raise HTTPException(status_code=409, detail="This appointment hasn't started yet")
+    booking.status = status
+    db.commit()
+    return booking
