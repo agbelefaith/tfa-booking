@@ -1,4 +1,5 @@
 """Database tables, written as Python classes."""
+import secrets
 from datetime import datetime, time
 
 from sqlalchemy import DateTime, ForeignKey, String, func, text
@@ -91,6 +92,10 @@ class Booking(Base):
     deposit_cents: Mapped[int]
     stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), unique=True)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    stripe_refund_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    manage_token: Mapped[str | None] = mapped_column(
+        String(64), unique=True, default=lambda: secrets.token_urlsafe(32)
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

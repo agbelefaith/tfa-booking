@@ -55,3 +55,15 @@ class CheckoutOut(BaseModel):
     """Where to send the client to pay their deposit."""
 
     checkout_url: str
+
+
+class BookingCreated(BookingOut):
+    """Returned once, right after booking. The token lets the client manage it."""
+
+    manage_token: str
+
+
+class CancelRequest(BaseModel):
+    """What a client sends to cancel their own booking."""
+
+    token: str

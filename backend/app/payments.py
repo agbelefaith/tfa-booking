@@ -40,3 +40,20 @@ def get_checkout(session_id: str):
 def verify_webhook(payload: bytes, signature: str):
     """Check a webhook really came from Stripe, then turn it into an event."""
     return stripe.Webhook.construct_event(payload, signature, settings.stripe_webhook_secret)
+
+
+def expire_checkout(session_id: str):
+    """Close a payment page so it can't be paid any more."""
+    return stripe.checkout.Session.expire(session_id)
+
+
+def refund_deposit(booking_id: int, payment_intent_id: str):
+    """Give a client their deposit back.
+
+    The idempotency key means that if this runs twice (a retry, a double
+    click), Stripe still only refunds once.
+    """
+    return stripe.Refund.create(
+        payment_intent=payment_intent_id,
+        idempotency_key=f"refund-booking-{booking_id}",
+    )
