@@ -35,3 +35,8 @@ def create_deposit_checkout(booking_id: int, service_name: str, deposit_cents: i
 def get_checkout(session_id: str):
     """Look up a payment page Stripe already made."""
     return stripe.checkout.Session.retrieve(session_id)
+
+
+def verify_webhook(payload: bytes, signature: str):
+    """Check a webhook really came from Stripe, then turn it into an event."""
+    return stripe.Webhook.construct_event(payload, signature, settings.stripe_webhook_secret)
