@@ -11,7 +11,8 @@ from app.availability import find_free_slots
 from app.config import settings
 from app.db import get_db
 from app.models import AddOn, Booking, BookingAddOn, Customer, Service, TimeOff, WeeklyHours
-from app.schemas import AddOnOut, BookingCreate, BookingOut, ServiceOut
+from app.schemas import AddOnOut, BookingCreate, BookingOut, CheckoutOut, ServiceOut
+from app import payments
 
 app = FastAPI(title=settings.app_name)
 
@@ -152,3 +153,41 @@ def create_booking(request: BookingCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="That time was just taken")
 
     return booking
+
+
+@app.post("/bookings/{booking_id}/checkout", response_model=CheckoutOut)
+def start_deposit_checkout(booking_id: int, db: Session = Depends(get_db)):
+    """Get a Stripe payment page for a pending booking's deposit."""
+    booking = db.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.status != "pending":
+        raise HTTPException(status_code=409, detail="This booking doesn't need a deposit")
+
+    # Clicked "Pay" twice? Reuse the payment page that's still open.
+    if booking.stripe_checkout_session_id:
+        existing = payments.get_checkout(booking.stripe_checkout_session_id)
+        if existing.status == "open":
+            return {"checkout_url": existing.url}
+
+    service = db.get(Service, booking.service_id)
+    customer = db.get(Customer, booking.customer_id)
+    session = payments.create_deposit_checkout(
+        booking.id, service.name, booking.deposit_cents, customer.email
+    )
+    booking.stripe_checkout_session_id = session.id
+    db.commit()
+    return {"checkout_url": session.url}
+
+
+# Temporary landing pages until the real booking site exists (Phase 4).
+@app.get("/checkout/success")
+def checkout_success(session_id: str):
+    """Where Stripe sends the client after paying."""
+    return {"message": "Deposit received, thank you!", "session_id": session_id}
+
+
+@app.get("/checkout/cancelled")
+def checkout_cancelled(booking_id: int):
+    """Where Stripe sends the client if they press back."""
+    return {"message": "Payment cancelled. Your slot is held for 30 minutes.", "booking_id": booking_id}

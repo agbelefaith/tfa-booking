@@ -49,3 +49,9 @@ class BookingOut(BaseModel):
     ends_at: datetime
     total_cents: int
     deposit_cents: int
+
+
+class CheckoutOut(BaseModel):
+    """Where to send the client to pay their deposit."""
+
+    checkout_url: str
