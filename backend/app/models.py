@@ -89,6 +89,7 @@ class Booking(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending")
     total_cents: Mapped[int]
     deposit_cents: Mapped[int]
+    stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
