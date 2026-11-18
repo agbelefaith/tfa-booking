@@ -1,8 +1,10 @@
 """Entry point for the FastAPI backend."""
+import logging
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+import stripe
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -10,11 +12,12 @@ from sqlalchemy.orm import Session
 from app.availability import find_free_slots
 from app.config import settings
 from app.db import get_db
-from app.models import AddOn, Booking, BookingAddOn, Customer, Service, TimeOff, WeeklyHours
+from app.models import AddOn, Booking, BookingAddOn, Customer, Service, StripeEvent, TimeOff, WeeklyHours
 from app.schemas import AddOnOut, BookingCreate, BookingOut, CheckoutOut, ServiceOut
 from app import payments
 
 app = FastAPI(title=settings.app_name)
+logger = logging.getLogger("uvicorn.error")
 
 # Booking statuses that take up time in the calendar.
 ACTIVE_STATUSES = ("pending", "confirmed")
@@ -191,3 +194,49 @@ def checkout_success(session_id: str):
 def checkout_cancelled(booking_id: int):
     """Where Stripe sends the client if they press back."""
     return {"message": "Payment cancelled. Your slot is held for 30 minutes.", "booking_id": booking_id}
+
+
+@app.get("/bookings/{booking_id}", response_model=BookingOut)
+def get_booking(booking_id: int, db: Session = Depends(get_db)):
+    """Look up one booking (handy for checking its status)."""
+    booking = db.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return booking
+
+
+@app.post("/webhooks/stripe")
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+    """Stripe calls this when something happens to a payment."""
+    # 1. Prove it's really Stripe (anyone could call this URL).
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature", "")
+    try:
+        event = payments.verify_webhook(payload, signature)
+    except (ValueError, stripe.SignatureVerificationError) as error:
+        logger.warning("Stripe webhook rejected: %s", error)
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # 2. Idempotency: Stripe may send the same event twice. Only act once.
+    db.add(StripeEvent(id=event.id, type=event.type))
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        return {"received": True, "duplicate": True}
+
+    # 3. Which booking is this about? (we put booking_id in metadata in Phase 5)
+    session = event.data.object.to_dict()  # plain Python dict, easier to read
+    metadata = session.get("metadata") or {}
+    booking = db.get(Booking, int(metadata["booking_id"])) if "booking_id" in metadata else None
+
+    # 4. Update the booking.
+    if booking is not None and booking.status == "pending":
+        if event.type == "checkout.session.completed" and session.get("payment_status") == "paid":
+            booking.status = "confirmed"
+            booking.stripe_payment_intent_id = session.get("payment_intent")
+        elif event.type == "checkout.session.expired":
+            booking.status = "cancelled"  # never paid, so free up the slot
+
+    db.commit()
+    return {"received": True}

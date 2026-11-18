@@ -90,6 +90,7 @@ class Booking(Base):
     total_cents: Mapped[int]
     deposit_cents: Mapped[int]
     stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(255), unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -112,3 +113,14 @@ class BookingAddOn(Base):
     booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), primary_key=True)
     add_on_id: Mapped[int] = mapped_column(ForeignKey("add_ons.id"), primary_key=True)
 
+
+class StripeEvent(Base):
+    """Stripe webhook events we've already handled, so we never handle one twice."""
+
+    __tablename__ = "stripe_events"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    type: Mapped[str] = mapped_column(String(100))
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
