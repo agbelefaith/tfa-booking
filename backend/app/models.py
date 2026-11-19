@@ -2,7 +2,7 @@
 import secrets
 from datetime import datetime, time
 
-from sqlalchemy import DateTime, ForeignKey, String, func, text
+from sqlalchemy import DateTime, ForeignKey, String, false, func, text, true
 from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,6 +23,8 @@ class Service(Base):
     buffer_minutes: Mapped[int] = mapped_column(default=0)
     price_cents: Mapped[int]
     is_active: Mapped[bool] = mapped_column(default=True)
+    # Plain sets say False, so nail art can't be added to them.
+    allows_nail_art: Mapped[bool] = mapped_column(default=True, server_default=true())
 
 
 class AddOn(Base):
@@ -35,6 +37,7 @@ class AddOn(Base):
     extra_minutes: Mapped[int]
     price_cents: Mapped[int]
     is_active: Mapped[bool] = mapped_column(default=True)
+    is_nail_art: Mapped[bool] = mapped_column(default=False, server_default=false())
 
 
 class Customer(Base):

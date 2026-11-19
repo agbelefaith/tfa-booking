@@ -80,6 +80,9 @@ def load_service_and_add_ons(db: Session, service_id: int, add_on_ids: list[int]
     if len(add_ons) != len(set(add_on_ids)):
         raise HTTPException(status_code=404, detail="Add-on not found")
 
+    if not service.allows_nail_art and any(a.is_nail_art for a in add_ons):
+        raise HTTPException(status_code=400, detail=f"Nail art isn't available with a {service.name}.")
+
     return service, add_ons
 
 
