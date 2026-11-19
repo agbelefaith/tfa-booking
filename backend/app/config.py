@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = "postgresql://postgres:postgres@localhost:5432/tfa_booking"
     business_timezone: str = "Europe/Dublin"
+    deposit_cents: int = 1500  # every booking's deposit (€15)
     public_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:5173"
     admin_api_key: str = ""
