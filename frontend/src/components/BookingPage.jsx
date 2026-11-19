@@ -59,12 +59,22 @@ export default function BookingPage() {
   }, [serviceId, addOnIds, day]);
 
   const service = services.find((s) => s.id === serviceId);
-  const chosenAddOns = addOns.filter((a) => addOnIds.includes(a.id));
+  // Plain sets can't have nail art, so only show the extras this treatment allows.
+  const allowedAddOns = addOns.filter((a) => service?.allows_nail_art || !a.is_nail_art);
+  const chosenAddOns = allowedAddOns.filter((a) => addOnIds.includes(a.id));
   const total = (service?.price_cents ?? 0) + chosenAddOns.reduce((sum, a) => sum + a.price_cents, 0);
   const minutes = (service?.duration_minutes ?? 0) + chosenAddOns.reduce((sum, a) => sum + a.extra_minutes, 0);
   // Same rule as the server: the set deposit, but never more than the total
   const deposit = Math.min(depositSetting, total);
   const canPay = service && startsAt && details.name && details.email && details.phone && !submitting;
+
+  function pickService(s) {
+    setServiceId(s.id);
+    // Switching to a plain set drops any nail art already picked.
+    if (!s.allows_nail_art) {
+      setAddOnIds((ids) => ids.filter((id) => !addOns.find((a) => a.id === id)?.is_nail_art));
+    }
+  }
 
   function toggleAddOn(id) {
     setAddOnIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
@@ -108,7 +118,7 @@ export default function BookingPage() {
             <button
               key={s.id}
               className={`option ${s.id === serviceId ? "selected" : ""}`}
-              onClick={() => setServiceId(s.id)}
+              onClick={() => pickService(s)}
             >
               <strong>{s.name}</strong>
               <span>{s.duration_minutes} min · {euros(s.price_cents)}</span>
@@ -117,11 +127,11 @@ export default function BookingPage() {
         </div>
       </section>
 
-      {service && addOns.length > 0 && (
+      {service && allowedAddOns.length > 0 && (
         <section className="card">
           <h2><span className="step">2</span> Add extras <small>(optional)</small></h2>
           <div className="chips">
-            {addOns.map((a) => (
+            {allowedAddOns.map((a) => (
               <button
                 key={a.id}
                 className={`chip ${addOnIds.includes(a.id) ? "selected" : ""}`}

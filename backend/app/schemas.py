@@ -13,6 +13,7 @@ class ServiceOut(BaseModel):
     name: str
     duration_minutes: int
     price_cents: int
+    allows_nail_art: bool
 
 
 class AddOnOut(BaseModel):
@@ -24,6 +25,7 @@ class AddOnOut(BaseModel):
     name: str
     extra_minutes: int
     price_cents: int
+    is_nail_art: bool
 
 
 class BookingCreate(BaseModel):
