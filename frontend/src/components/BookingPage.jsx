@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { createBooking, getAddOns, getAvailability, getOpeningDays, getServices, startCheckout } from "../api.js";
+import {
+  createBooking,
+  getAddOns,
+  getAvailability,
+  getBookingPolicy,
+  getOpeningDays,
+  getServices,
+  startCheckout,
+} from "../api.js";
 import { euros, niceDate, timeOfDay } from "../format.js";
 import Calendar from "./Calendar.jsx";
 import { Header } from "./ResultPage.jsx";
@@ -9,6 +17,7 @@ export default function BookingPage() {
   const [services, setServices] = useState([]);
   const [addOns, setAddOns] = useState([]);
   const [openWeekdays, setOpenWeekdays] = useState([]);
+  const [depositSetting, setDepositSetting] = useState(0);
   const [slots, setSlots] = useState([]);
 
   // What the client has chosen
@@ -27,11 +36,12 @@ export default function BookingPage() {
 
   // 1. Load services and add-ons once, when the page opens.
   useEffect(() => {
-    Promise.all([getServices(), getAddOns(), getOpeningDays()])
-      .then(([s, a, open]) => {
+    Promise.all([getServices(), getAddOns(), getOpeningDays(), getBookingPolicy()])
+      .then(([s, a, open, policy]) => {
         setServices(s);
         setAddOns(a);
         setOpenWeekdays(open);
+        setDepositSetting(policy.deposit_cents);
       })
       .catch(() => setError("Can't reach the booking system. Is the backend running?"));
   }, []);
@@ -52,6 +62,8 @@ export default function BookingPage() {
   const chosenAddOns = addOns.filter((a) => addOnIds.includes(a.id));
   const total = (service?.price_cents ?? 0) + chosenAddOns.reduce((sum, a) => sum + a.price_cents, 0);
   const minutes = (service?.duration_minutes ?? 0) + chosenAddOns.reduce((sum, a) => sum + a.extra_minutes, 0);
+  // Same rule as the server: the set deposit, but never more than the total
+  const deposit = Math.min(depositSetting, total);
   const canPay = service && startsAt && details.name && details.email && details.phone && !submitting;
 
   function toggleAddOn(id) {
@@ -167,14 +179,14 @@ export default function BookingPage() {
           <div className="summary">
             <p>{service.name}{chosenAddOns.map((a) => ` + ${a.name}`).join("")}</p>
             <p>{niceDate(day)} at {timeOfDay(startsAt)} · {minutes} min</p>
-            <p>Total {euros(total)} · <strong>Deposit today {euros(service.deposit_cents)}</strong></p>
+            <p>Total {euros(total)} · <strong>Deposit today {euros(deposit)}</strong></p>
             <p className="muted">Deposits are non-refundable.</p>
           </div>
 
           {error && <p className="error">{error}</p>}
 
           <button className="button" type="submit" disabled={!canPay}>
-            {submitting ? "Taking you to payment…" : `Pay ${euros(service.deposit_cents)} deposit`}
+            {submitting ? "Taking you to payment…" : `Pay ${euros(deposit)} deposit`}
           </button>
         </form>
       )}

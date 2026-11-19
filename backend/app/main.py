@@ -16,10 +16,12 @@ from app.config import settings
 from app.db import get_db
 from app.admin import router as admin_router
 from app.models import ACTIVE_STATUSES, AddOn, Booking, BookingAddOn, Customer, Service, StripeEvent, TimeOff, WeeklyHours
+from app.pricing import deposit_for
 from app.schemas import (
     AddOnOut,
     BookingCreate,
     BookingCreated,
+    BookingPolicyOut,
     BookingOut,
     CancelRequest,
     CheckoutOut,
@@ -139,6 +141,12 @@ def free_slots_for(db: Session, day: date, service: Service, add_ons: list[AddOn
     )
 
 
+@app.get("/booking-policy", response_model=BookingPolicyOut)
+def get_booking_policy():
+    """Rules the website shows clients, like the deposit amount."""
+    return {"deposit_cents": settings.deposit_cents}
+
+
 @app.get("/opening-days", response_model=list[int])
 def list_opening_days(db: Session = Depends(get_db)):
     """Weekdays you're open (0 = Monday ... 6 = Sunday), so the calendar can grey out closed days."""
@@ -182,6 +190,7 @@ def create_booking(request: BookingCreate, db: Session = Depends(get_db)):
     # 3. Work out times and prices (price snapshot).
     appointment_minutes = service.duration_minutes + sum(a.extra_minutes for a in add_ons)
     ends_at = starts_at + timedelta(minutes=appointment_minutes)
+    total_cents = service.price_cents + sum(a.price_cents for a in add_ons)
     booking = Booking(
         customer_id=customer.id,
         service_id=service.id,
@@ -189,8 +198,8 @@ def create_booking(request: BookingCreate, db: Session = Depends(get_db)):
         ends_at=ends_at,
         blocked_until=ends_at + timedelta(minutes=service.buffer_minutes),
         status="pending",
-        total_cents=service.price_cents + sum(a.price_cents for a in add_ons),
-        deposit_cents=service.deposit_cents,
+        total_cents=total_cents,
+        deposit_cents=deposit_for(total_cents, settings.deposit_cents),
     )
     db.add(booking)
 

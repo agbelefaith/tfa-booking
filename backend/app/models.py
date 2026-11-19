@@ -22,7 +22,6 @@ class Service(Base):
     duration_minutes: Mapped[int]
     buffer_minutes: Mapped[int] = mapped_column(default=0)
     price_cents: Mapped[int]
-    deposit_cents: Mapped[int]
     is_active: Mapped[bool] = mapped_column(default=True)
 
 

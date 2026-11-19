@@ -18,6 +18,7 @@ async function request(path, options = {}) {
 export const getServices = () => request("/services");
 export const getAddOns = () => request("/add-ons");
 export const getOpeningDays = () => request("/opening-days");
+export const getBookingPolicy = () => request("/booking-policy");
 
 export function getAvailability(day, serviceId, addOnIds) {
   const params = new URLSearchParams({ day, service_id: serviceId });

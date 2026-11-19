@@ -13,7 +13,6 @@ class ServiceOut(BaseModel):
     name: str
     duration_minutes: int
     price_cents: int
-    deposit_cents: int
 
 
 class AddOnOut(BaseModel):
@@ -124,3 +123,9 @@ class TimeOffOut(BaseModel):
     starts_at: datetime
     ends_at: datetime
     reason: str | None
+
+
+class BookingPolicyOut(BaseModel):
+    """Booking rules the website needs to show prices correctly."""
+
+    deposit_cents: int

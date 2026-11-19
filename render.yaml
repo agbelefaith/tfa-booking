@@ -16,6 +16,8 @@ services:
         value: 3.13.1
       - key: ENVIRONMENT
         value: production
+      - key: DEPOSIT_CENTS
+        value: 1500 # €15 deposit on every booking
       - key: DATABASE_URL
         sync: false # you paste this in (Neon connection string)
       - key: STRIPE_SECRET_KEY

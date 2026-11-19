@@ -19,11 +19,11 @@ def main():
 
         db.add_all([
             Service(name="Gel manicure", duration_minutes=60, buffer_minutes=10,
-                    price_cents=3500, deposit_cents=1000),
+                    price_cents=3500),
             Service(name="BIAB", duration_minutes=75, buffer_minutes=10,
-                    price_cents=4500, deposit_cents=1000),
+                    price_cents=4500),
             Service(name="Acrylic full set", duration_minutes=90, buffer_minutes=15,
-                    price_cents=5000, deposit_cents=1500),
+                    price_cents=5000),
             AddOn(name="Nail art", extra_minutes=15, price_cents=1000),
             AddOn(name="Chrome", extra_minutes=10, price_cents=500),
             AddOn(name="Removal", extra_minutes=20, price_cents=1000),
