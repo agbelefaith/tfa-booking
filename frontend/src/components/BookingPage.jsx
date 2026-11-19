@@ -22,6 +22,8 @@ export default function BookingPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // If booking worked but payment didn't start, remember it so "try again" doesn't book twice
+  const [heldBookingId, setHeldBookingId] = useState(null);
 
   // 1. Load services and add-ons once, when the page opens.
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function BookingPage() {
     if (!serviceId || !day) return;
     setLoadingSlots(true);
     setStartsAt(null);
+    setHeldBookingId(null);
     getAvailability(day, serviceId, addOnIds)
       .then(setSlots)
       .catch((e) => setError(e.message))
@@ -61,13 +64,18 @@ export default function BookingPage() {
     setSubmitting(true);
     setError("");
     try {
-      const booking = await createBooking({
-        service_id: serviceId,
-        add_on_ids: addOnIds,
-        starts_at: startsAt,
-        ...details,
-      });
-      const { checkout_url } = await startCheckout(booking.id);
+      let bookingId = heldBookingId;
+      if (!bookingId) {
+        const booking = await createBooking({
+          service_id: serviceId,
+          add_on_ids: addOnIds,
+          starts_at: startsAt,
+          ...details,
+        });
+        bookingId = booking.id;
+        setHeldBookingId(bookingId);
+      }
+      const { checkout_url } = await startCheckout(bookingId);
       window.location.href = checkout_url; // off to Stripe's payment page
     } catch (e) {
       setError(e.message);
@@ -128,7 +136,10 @@ export default function BookingPage() {
                   <button
                     key={slot}
                     className={`chip ${slot === startsAt ? "selected" : ""}`}
-                    onClick={() => setStartsAt(slot)}
+                    onClick={() => {
+                      setStartsAt(slot);
+                      setHeldBookingId(null);
+                    }}
                   >
                     {timeOfDay(slot)}
                   </button>
@@ -159,6 +170,8 @@ export default function BookingPage() {
             <p>Total {euros(total)} · <strong>Deposit today {euros(service.deposit_cents)}</strong></p>
             <p className="muted">Deposits are non-refundable.</p>
           </div>
+
+          {error && <p className="error">{error}</p>}
 
           <button className="button" type="submit" disabled={!canPay}>
             {submitting ? "Taking you to payment…" : `Pay ${euros(service.deposit_cents)} deposit`}
