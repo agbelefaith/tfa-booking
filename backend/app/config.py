@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@localhost:5432/tfa_booking"
     business_timezone: str = "Europe/Dublin"
     public_url: str = "http://localhost:8000"
+    frontend_url: str = "http://localhost:5173"
     admin_api_key: str = ""
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""

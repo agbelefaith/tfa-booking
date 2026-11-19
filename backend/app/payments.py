@@ -27,8 +27,8 @@ def create_deposit_checkout(booking_id: int, service_name: str, deposit_cents: i
         ],
         metadata={"booking_id": str(booking_id)},
         expires_at=int(time.time()) + CHECKOUT_EXPIRES_AFTER_MINUTES * 60,
-        success_url=f"{settings.public_url}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{settings.public_url}/checkout/cancelled?booking_id={booking_id}",
+        success_url=f"{settings.frontend_url}/booking/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{settings.frontend_url}/booking/cancelled?booking_id={booking_id}",
     )
 
 

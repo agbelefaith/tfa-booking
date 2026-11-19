@@ -1,0 +1,105 @@
+/* TFA brand: black + gold luxe */
+:root {
+  --black: #0b0b0c;
+  --panel: #151417;
+  --line: #2a272c;
+  --gold: #d4af37;
+  --gold-soft: #e9d18a;
+  --cream: #f4ede1;
+  --muted: #a39d93;
+  --danger: #e57373;
+  font-family: "Inter", system-ui, sans-serif;
+  color: var(--cream);
+  background: var(--black);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+.page { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+
+.header { text-align: center; margin-bottom: 32px; }
+.header h1, h2 { font-family: "Cormorant Garamond", serif; font-weight: 600; }
+.header h1 { font-size: 3rem; margin: 0; color: var(--gold); letter-spacing: 0.02em; }
+.eyebrow { margin: 0; letter-spacing: 0.4em; color: var(--gold-soft); font-size: 0.8rem; }
+.tagline { color: var(--muted); margin-top: 6px; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+h2 { font-size: 1.6rem; margin: 0 0 16px; display: flex; align-items: center; gap: 10px; }
+h2 small { font-family: "Inter", sans-serif; font-size: 0.85rem; color: var(--muted); font-weight: 400; }
+.step {
+  display: inline-grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--gold); color: var(--gold);
+  font-family: "Inter", sans-serif; font-size: 0.85rem;
+}
+
+button { font: inherit; cursor: pointer; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.option {
+  text-align: left; padding: 16px; border-radius: 12px;
+  background: transparent; color: var(--cream); border: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.option span { color: var(--muted); font-size: 0.9rem; }
+.chips, .slots { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 8px 14px; border-radius: 999px;
+  background: transparent; color: var(--cream); border: 1px solid var(--line);
+}
+.option:hover, .chip:hover { border-color: var(--gold-soft); }
+.selected { border-color: var(--gold) !important; background: rgba(212, 175, 55, 0.12); color: var(--gold-soft); }
+
+label { display: block; margin-bottom: 14px; color: var(--muted); font-size: 0.9rem; }
+input {
+  display: block; width: 100%; margin-top: 6px; padding: 12px;
+  border-radius: 10px; border: 1px solid var(--line);
+  background: var(--black); color: var(--cream); font: inherit;
+}
+input:focus { outline: none; border-color: var(--gold); }
+
+.summary { border-top: 1px solid var(--line); margin: 20px 0; padding-top: 16px; }
+.summary p { margin: 4px 0; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+
+.button {
+  display: inline-block; width: 100%; padding: 14px; border: none; border-radius: 12px;
+  background: var(--gold); color: var(--black); font-weight: 600; text-align: center; text-decoration: none;
+}
+.button:disabled { opacity: 0.4; cursor: not-allowed; }
+.error { background: rgba(229, 115, 115, 0.12); border: 1px solid var(--danger); color: var(--danger); padding: 12px 16px; border-radius: 12px; }
+.result { text-align: center; }
+.result h2 { justify-content: center; }
+.result .button { width: auto; padding: 14px 28px; margin-top: 12px; }
+
+/* Calendar */
+.calendar { max-width: 420px; margin: 0 auto 20px; }
+.calendar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: "Cormorant Garamond", serif; font-size: 1.4rem; color: var(--gold-soft);
+  margin-bottom: 12px;
+}
+.nav {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--line); color: var(--cream); font-size: 1.2rem;
+}
+.nav:hover:not(:disabled) { border-color: var(--gold); }
+.nav:disabled { opacity: 0.25; cursor: not-allowed; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.weekday { text-align: center; font-size: 0.75rem; color: var(--muted); letter-spacing: 0.05em; padding-bottom: 4px; }
+.date {
+  aspect-ratio: 1; border-radius: 50%;
+  background: transparent; border: 1px solid transparent; color: var(--cream);
+}
+.date:hover:not(:disabled) { border-color: var(--gold-soft); }
+.date:disabled { color: #4a464d; cursor: not-allowed; }
+.date.today { border-color: var(--line); }
+.date.selected { background: var(--gold) !important; color: var(--black) !important; font-weight: 600; }
+.slots { border-top: 1px solid var(--line); padding-top: 16px; }
+.slots-title { width: 100%; margin: 0 0 4px; color: var(--muted); font-size: 0.9rem; }
