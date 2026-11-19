@@ -8,6 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
 
+# Booking statuses that take up time in the calendar.
+ACTIVE_STATUSES = ("pending", "confirmed")
+
 
 class Service(Base):
     """A treatment you offer, e.g. Gel nails."""

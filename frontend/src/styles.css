@@ -1,7 +1,7 @@
 /* TFA brand: black + gold luxe */
 :root {
-  --black: #0b0b0c;
-  --panel: #151417;
+  --black: #343437;
+  --panel: #262429;
   --line: #2a272c;
   --gold: #d4af37;
   --gold-soft: #e9d18a;
@@ -103,3 +103,46 @@ input:focus { outline: none; border-color: var(--gold); }
 .date.selected { background: var(--gold) !important; color: var(--black) !important; font-weight: 600; }
 .slots { border-top: 1px solid var(--line); padding-top: 16px; }
 .slots-title { width: 100%; margin: 0 0 4px; color: var(--muted); font-size: 0.9rem; }
+
+/* ---------- Admin dashboard ---------- */
+.page.wide { max-width: 900px; }
+.admin-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
+.admin-title { font-family: "Cormorant Garamond", serif; color: var(--gold); font-size: 2.4rem; margin: 0; }
+.link { background: none; border: none; color: var(--gold-soft); padding: 4px 8px; }
+.link:hover { text-decoration: underline; }
+.tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+.tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: 10px 14px; }
+.tab.selected { color: var(--gold); border-bottom-color: var(--gold); background: none; }
+.login { max-width: 380px; margin: 60px auto; text-align: center; }
+.login h2 { justify-content: center; }
+.login label { text-align: left; }
+.success { color: #8fd19e; }
+
+.week-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-family: "Cormorant Garamond", serif; font-size: 1.4rem; color: var(--gold-soft); }
+.agenda-day { margin-bottom: 18px; }
+.agenda-day h3 { font-family: "Cormorant Garamond", serif; font-weight: 600; font-size: 1.3rem; margin: 0 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.booking { display: grid; grid-template-columns: 70px 1fr auto; gap: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 8px; }
+.booking.faded { opacity: 0.5; }
+.booking-time { font-weight: 600; color: var(--gold-soft); display: flex; flex-direction: column; }
+.booking-time small { color: var(--muted); font-weight: 400; }
+.booking-info { display: flex; flex-direction: column; gap: 3px; }
+.booking-info a { color: inherit; }
+.booking-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.badge.confirmed { border-color: var(--gold); color: var(--gold); }
+.badge.pending { color: var(--muted); border-style: dashed; }
+.badge.completed { color: #8fd19e; border-color: #3b5e43; }
+.badge.no_show, .badge.cancelled, .badge.business_cancelled { color: var(--danger); border-color: #5e3b3b; }
+.chip.danger { color: var(--danger); }
+
+.card > .button { margin-top: 20px; }
+.hours-row { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); align-items: start; }
+.day-toggle { display: flex; align-items: center; gap: 8px; color: var(--cream); margin: 0; }
+.day-toggle input { width: auto; margin: 0; accent-color: var(--gold); }
+.blocks { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.block { display: flex; align-items: center; gap: 8px; }
+.block input { width: auto; margin: 0; padding: 8px; color-scheme: dark; }
+.time-off-form { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 12px; align-items: end; margin-bottom: 16px; }
+.time-off-form input { color-scheme: dark; }
+.time-off-form .button { grid-column: 1 / -1; }
+.time-off-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }

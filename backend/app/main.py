@@ -5,7 +5,7 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import stripe
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 from app.availability import find_free_slots
 from app.config import settings
 from app.db import get_db
-from app.models import AddOn, Booking, BookingAddOn, Customer, Service, StripeEvent, TimeOff, WeeklyHours
+from app.admin import router as admin_router
+from app.models import ACTIVE_STATUSES, AddOn, Booking, BookingAddOn, Customer, Service, StripeEvent, TimeOff, WeeklyHours
 from app.schemas import (
     AddOnOut,
     BookingCreate,
@@ -37,8 +38,9 @@ app.add_middleware(
 )
 logger = logging.getLogger("uvicorn.error")
 
-# Booking statuses that take up time in the calendar.
-ACTIVE_STATUSES = ("pending", "confirmed")
+# All the /admin/... endpoints live in admin.py
+app.include_router(admin_router)
+
 
 # A pending booking that never reached the payment page gets released after this.
 ABANDONED_AFTER_MINUTES = 35
@@ -57,7 +59,7 @@ def list_services(db: Session = Depends(get_db)):
     return db.scalars(query).all()
 
 
-@app.get("/add-ons",response_model=list[AddOnOut])
+@app.get("/add-ons", response_model=list[AddOnOut])
 def list_add_ons(db: Session = Depends(get_db)):
     """All add ons clients can add to their bookings."""
     query = select(AddOn).where(AddOn.is_active).order_by(AddOn.price_cents)
@@ -292,57 +294,5 @@ def cancel_booking(booking_id: int, request: CancelRequest, db: Session = Depend
         payments.expire_checkout(booking.stripe_checkout_session_id)
 
     booking.status = "cancelled"
-    db.commit()
-    return booking
-
-
-def require_admin(x_admin_key: str = Header(default="")):
-    """Only you (with the admin key) can use admin endpoints."""
-    if not settings.admin_api_key or not secrets.compare_digest(x_admin_key, settings.admin_api_key):
-        raise HTTPException(status_code=401, detail="Admin key required")
-
-
-@app.post("/admin/bookings/{booking_id}/cancel", response_model=BookingOut, dependencies=[Depends(require_admin)])
-def business_cancel_booking(booking_id: int, db: Session = Depends(get_db)):
-    """You have to cancel (sick, emergency): the client gets their deposit back."""
-    booking = db.get(Booking, booking_id)
-    if booking is None:
-        raise HTTPException(status_code=404, detail="Booking not found")
-    if booking.status not in ACTIVE_STATUSES:
-        raise HTTPException(status_code=409, detail="This booking can't be cancelled")
-
-    if booking.status == "confirmed" and booking.stripe_payment_intent_id:
-        refund = payments.refund_deposit(booking.id, booking.stripe_payment_intent_id)
-        booking.stripe_refund_id = refund.id
-    elif booking.stripe_checkout_session_id:
-        payments.expire_checkout(booking.stripe_checkout_session_id)
-
-    booking.status = "business_cancelled"
-    db.commit()
-    return booking
-
-
-@app.post("/admin/bookings/{booking_id}/no-show", response_model=BookingOut, dependencies=[Depends(require_admin)])
-def mark_no_show(booking_id: int, db: Session = Depends(get_db)):
-    """The client didn't turn up. You keep the deposit."""
-    return set_final_status(db, booking_id, "no_show")
-
-
-@app.post("/admin/bookings/{booking_id}/complete", response_model=BookingOut, dependencies=[Depends(require_admin)])
-def mark_completed(booking_id: int, db: Session = Depends(get_db)):
-    """The appointment happened."""
-    return set_final_status(db, booking_id, "completed")
-
-
-def set_final_status(db: Session, booking_id: int, status: str) -> Booking:
-    """Close off a confirmed booking once its start time has passed."""
-    booking = db.get(Booking, booking_id)
-    if booking is None:
-        raise HTTPException(status_code=404, detail="Booking not found")
-    if booking.status != "confirmed":
-        raise HTTPException(status_code=409, detail="Only confirmed bookings can be closed off")
-    if booking.starts_at > datetime.now(booking.starts_at.tzinfo):
-        raise HTTPException(status_code=409, detail="This appointment hasn't started yet")
-    booking.status = status
     db.commit()
     return booking

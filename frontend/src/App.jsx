@@ -1,3 +1,4 @@
+import AdminPage from "./components/admin/AdminPage.jsx";
 import BookingPage from "./components/BookingPage.jsx";
 import ResultPage from "./components/ResultPage.jsx";
 
@@ -5,6 +6,9 @@ import ResultPage from "./components/ResultPage.jsx";
 export default function App() {
   const path = window.location.pathname;
 
+  if (path === "/admin") {
+    return <AdminPage />;
+  }
   if (path === "/booking/success") {
     return (
       <ResultPage
