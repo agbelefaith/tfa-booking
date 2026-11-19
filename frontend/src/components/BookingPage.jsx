@@ -1,0 +1,170 @@
+import { useEffect, useState } from "react";
+import { createBooking, getAddOns, getAvailability, getOpeningDays, getServices, startCheckout } from "../api.js";
+import { euros, niceDate, timeOfDay } from "../format.js";
+import Calendar from "./Calendar.jsx";
+import { Header } from "./ResultPage.jsx";
+
+export default function BookingPage() {
+  // What we loaded from the API
+  const [services, setServices] = useState([]);
+  const [addOns, setAddOns] = useState([]);
+  const [openWeekdays, setOpenWeekdays] = useState([]);
+  const [slots, setSlots] = useState([]);
+
+  // What the client has chosen
+  const [serviceId, setServiceId] = useState(null);
+  const [addOnIds, setAddOnIds] = useState([]);
+  const [day, setDay] = useState(null);
+  const [startsAt, setStartsAt] = useState(null);
+  const [details, setDetails] = useState({ name: "", email: "", phone: "" });
+
+  // Page status
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // 1. Load services and add-ons once, when the page opens.
+  useEffect(() => {
+    Promise.all([getServices(), getAddOns(), getOpeningDays()])
+      .then(([s, a, open]) => {
+        setServices(s);
+        setAddOns(a);
+        setOpenWeekdays(open);
+      })
+      .catch(() => setError("Can't reach the booking system. Is the backend running?"));
+  }, []);
+
+  // 2. Whenever the service, add-ons or day change, load free times.
+  useEffect(() => {
+    if (!serviceId || !day) return;
+    setLoadingSlots(true);
+    setStartsAt(null);
+    getAvailability(day, serviceId, addOnIds)
+      .then(setSlots)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoadingSlots(false));
+  }, [serviceId, addOnIds, day]);
+
+  const service = services.find((s) => s.id === serviceId);
+  const chosenAddOns = addOns.filter((a) => addOnIds.includes(a.id));
+  const total = (service?.price_cents ?? 0) + chosenAddOns.reduce((sum, a) => sum + a.price_cents, 0);
+  const minutes = (service?.duration_minutes ?? 0) + chosenAddOns.reduce((sum, a) => sum + a.extra_minutes, 0);
+  const canPay = service && startsAt && details.name && details.email && details.phone && !submitting;
+
+  function toggleAddOn(id) {
+    setAddOnIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  // 3. Book the slot, then send the client to Stripe to pay the deposit.
+  async function handlePay(event) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      const booking = await createBooking({
+        service_id: serviceId,
+        add_on_ids: addOnIds,
+        starts_at: startsAt,
+        ...details,
+      });
+      const { checkout_url } = await startCheckout(booking.id);
+      window.location.href = checkout_url; // off to Stripe's payment page
+    } catch (e) {
+      setError(e.message);
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="page">
+      <Header />
+
+      {error && <p className="error">{error}</p>}
+
+      <section className="card">
+        <h2><span className="step">1</span> Choose your treatment</h2>
+        <div className="grid">
+          {services.map((s) => (
+            <button
+              key={s.id}
+              className={`option ${s.id === serviceId ? "selected" : ""}`}
+              onClick={() => setServiceId(s.id)}
+            >
+              <strong>{s.name}</strong>
+              <span>{s.duration_minutes} min · {euros(s.price_cents)}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {service && addOns.length > 0 && (
+        <section className="card">
+          <h2><span className="step">2</span> Add extras <small>(optional)</small></h2>
+          <div className="chips">
+            {addOns.map((a) => (
+              <button
+                key={a.id}
+                className={`chip ${addOnIds.includes(a.id) ? "selected" : ""}`}
+                onClick={() => toggleAddOn(a.id)}
+              >
+                {a.name} +{euros(a.price_cents)}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {service && (
+        <section className="card">
+          <h2><span className="step">3</span> Pick a day and time</h2>
+          <Calendar selected={day} onSelect={setDay} openWeekdays={openWeekdays} />
+          {day && (
+            <div className="slots">
+              <p className="slots-title">Times on {niceDate(day)}</p>
+              {loadingSlots && <p className="muted">Checking free times…</p>}
+              {!loadingSlots && slots.length === 0 && <p className="muted">No free times this day. Try another.</p>}
+              {!loadingSlots &&
+                slots.map((slot) => (
+                  <button
+                    key={slot}
+                    className={`chip ${slot === startsAt ? "selected" : ""}`}
+                    onClick={() => setStartsAt(slot)}
+                  >
+                    {timeOfDay(slot)}
+                  </button>
+                ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {startsAt && (
+        <form className="card" onSubmit={handlePay}>
+          <h2><span className="step">4</span> Your details</h2>
+          {["name", "email", "phone"].map((field) => (
+            <label key={field}>
+              {field[0].toUpperCase() + field.slice(1)}
+              <input
+                type={field === "email" ? "email" : field === "phone" ? "tel" : "text"}
+                value={details[field]}
+                onChange={(e) => setDetails({ ...details, [field]: e.target.value })}
+                required
+              />
+            </label>
+          ))}
+
+          <div className="summary">
+            <p>{service.name}{chosenAddOns.map((a) => ` + ${a.name}`).join("")}</p>
+            <p>{niceDate(day)} at {timeOfDay(startsAt)} · {minutes} min</p>
+            <p>Total {euros(total)} · <strong>Deposit today {euros(service.deposit_cents)}</strong></p>
+            <p className="muted">Deposits are non-refundable.</p>
+          </div>
+
+          <button className="button" type="submit" disabled={!canPay}>
+            {submitting ? "Taking you to payment…" : `Pay ${euros(service.deposit_cents)} deposit`}
+          </button>
+        </form>
+      )}
+    </main>
+  );
+}

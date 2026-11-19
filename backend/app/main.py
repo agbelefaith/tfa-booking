@@ -6,7 +6,8 @@ from zoneinfo import ZoneInfo
 
 import stripe
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
-from sqlalchemy import select
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,10 +27,21 @@ from app.schemas import (
 from app import payments
 
 app = FastAPI(title=settings.app_name)
+
+# Let the booking website (a different address) call this API from the browser.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.frontend_url],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 logger = logging.getLogger("uvicorn.error")
 
 # Booking statuses that take up time in the calendar.
 ACTIVE_STATUSES = ("pending", "confirmed")
+
+# A pending booking that never reached the payment page gets released after this.
+ABANDONED_AFTER_MINUTES = 35
 
 
 @app.get("/health")
@@ -67,8 +79,27 @@ def load_service_and_add_ons(db: Session, service_id: int, add_on_ids: list[int]
     return service, add_ons
 
 
+def expire_abandoned_bookings(db: Session) -> None:
+    """Release slots held by bookings that never got a payment page.
+
+    (Bookings that did get one are handled by Stripe's checkout.session.expired webhook.)
+    """
+    cutoff = datetime.now(ZoneInfo("UTC")) - timedelta(minutes=ABANDONED_AFTER_MINUTES)
+    db.execute(
+        update(Booking)
+        .where(
+            Booking.status == "pending",
+            Booking.stripe_checkout_session_id.is_(None),
+            Booking.created_at < cutoff,
+        )
+        .values(status="cancelled")
+    )
+    db.commit()
+
+
 def free_slots_for(db: Session, day: date, service: Service, add_ons: list[AddOn]) -> list[datetime]:
     """Every free start time on `day` for this service + add-ons."""
+    expire_abandoned_bookings(db)
     appointment_minutes = service.duration_minutes + sum(a.extra_minutes for a in add_ons)
 
     # When are you open that day?
@@ -104,6 +135,12 @@ def free_slots_for(db: Session, day: date, service: Service, add_ons: list[AddOn
         timezone,
         now=datetime.now(timezone),
     )
+
+
+@app.get("/opening-days", response_model=list[int])
+def list_opening_days(db: Session = Depends(get_db)):
+    """Weekdays you're open (0 = Monday ... 6 = Sunday), so the calendar can grey out closed days."""
+    return sorted(set(db.scalars(select(WeeklyHours.day_of_week)).all()))
 
 
 @app.get("/availability", response_model=list[datetime])
@@ -190,19 +227,6 @@ def start_deposit_checkout(booking_id: int, db: Session = Depends(get_db)):
     booking.stripe_checkout_session_id = session.id
     db.commit()
     return {"checkout_url": session.url}
-
-
-# Temporary landing pages until the real booking site exists (Phase 4).
-@app.get("/checkout/success")
-def checkout_success(session_id: str):
-    """Where Stripe sends the client after paying."""
-    return {"message": "Deposit received, thank you!", "session_id": session_id}
-
-
-@app.get("/checkout/cancelled")
-def checkout_cancelled(booking_id: int):
-    """Where Stripe sends the client if they press back."""
-    return {"message": "Payment cancelled. Your slot is held for 30 minutes.", "booking_id": booking_id}
 
 
 @app.get("/bookings/{booking_id}", response_model=BookingOut)
