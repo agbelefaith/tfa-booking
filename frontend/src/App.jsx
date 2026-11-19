@@ -13,7 +13,7 @@ export default function App() {
     return (
       <ResultPage
         title="You're booked in ✨"
-        message="Your deposit is paid. A confirmation is on its way to your email. See you soon!"
+        message="Your deposit is paid and your appointment is confirmed. See you soon!"
       />
     );
   }
