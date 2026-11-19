@@ -1,8 +1,10 @@
 """Your side of the system: everything under /admin needs the admin key."""
+import logging
 import secrets
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -21,6 +23,8 @@ from app.models import (
     WeeklyHours,
 )
 from app.schemas import AdminBookingOut, BookingOut, OpeningHours, TimeOffCreate, TimeOffOut
+
+logger = logging.getLogger("uvicorn.error")
 
 
 def require_admin(x_admin_key: str = Header(default="")):
@@ -94,11 +98,15 @@ def business_cancel_booking(booking_id: int, db: Session = Depends(get_db)):
     if booking.status not in ACTIVE_STATUSES:
         raise HTTPException(status_code=409, detail="This booking can't be cancelled")
 
-    if booking.status == "confirmed" and booking.stripe_payment_intent_id:
-        refund = payments.refund_deposit(booking.id, booking.stripe_payment_intent_id)
-        booking.stripe_refund_id = refund.id
-    elif booking.stripe_checkout_session_id:
-        payments.expire_checkout(booking.stripe_checkout_session_id)
+    try:
+        if booking.status == "confirmed" and booking.stripe_payment_intent_id:
+            refund = payments.refund_deposit(booking.id, booking.stripe_payment_intent_id)
+            booking.stripe_refund_id = refund.id
+        elif booking.stripe_checkout_session_id:
+            payments.expire_checkout(booking.stripe_checkout_session_id)
+    except stripe.StripeError:
+        logger.exception("Stripe refund/expire failed for booking %s", booking.id)
+        raise HTTPException(status_code=502, detail="Stripe didn't respond. Nothing was changed, please try again.")
 
     booking.status = "business_cancelled"
     db.commit()

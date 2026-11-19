@@ -215,17 +215,24 @@ def start_deposit_checkout(booking_id: int, db: Session = Depends(get_db)):
     if booking.status != "pending":
         raise HTTPException(status_code=409, detail="This booking doesn't need a deposit")
 
-    # Clicked "Pay" twice? Reuse the payment page that's still open.
-    if booking.stripe_checkout_session_id:
-        existing = payments.get_checkout(booking.stripe_checkout_session_id)
-        if existing.status == "open":
-            return {"checkout_url": existing.url}
-
     service = db.get(Service, booking.service_id)
     customer = db.get(Customer, booking.customer_id)
-    session = payments.create_deposit_checkout(
-        booking.id, service.name, booking.deposit_cents, customer.email
-    )
+    try:
+        # Clicked "Pay" twice? Reuse the payment page that's still open.
+        if booking.stripe_checkout_session_id:
+            existing = payments.get_checkout(booking.stripe_checkout_session_id)
+            if existing.status == "open":
+                return {"checkout_url": existing.url}
+
+        session = payments.create_deposit_checkout(
+            booking.id, service.name, booking.deposit_cents, customer.email
+        )
+    except stripe.StripeError:
+        # Log the real reason for us; give the client a clear, safe message.
+        logger.exception("Stripe checkout failed for booking %s", booking.id)
+        raise HTTPException(
+            status_code=502, detail="Payments are unavailable right now. Please try again in a moment."
+        )
     booking.stripe_checkout_session_id = session.id
     db.commit()
     return {"checkout_url": session.url}
