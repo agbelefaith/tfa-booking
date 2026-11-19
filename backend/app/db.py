@@ -10,7 +10,10 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from app.config import settings
 
 # Tell SQLAlchemy to use the psycopg (v3) driver to talk to Postgres.
-database_url = settings.database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+# Hosts write the address as postgres:// or postgresql://; SQLAlchemy needs to know the driver.
+database_url = settings.database_url.replace("postgres://", "postgresql://", 1).replace(
+    "postgresql://", "postgresql+psycopg://", 1
+)
 
 engine = create_engine(database_url)
 SessionLocal = sessionmaker(bind=engine)
