@@ -2,8 +2,9 @@
 
 A booking and payments system for my nail business, [TFA Nails & Beauty](https://www.instagram.com/tfa.nailsandbeauty/). Clients pick a treatment, choose a time on a calendar, and pay a €15 deposit with Stripe. I manage bookings, hours and days off from an admin dashboard.
 
-**Live demo:** https://tfa-booking-site.onrender.com (Stripe test mode, so use card `4242 4242 4242 4242`)
-**API docs:** https://tfa-booking-api.onrender.com/docs
+- **Live demo:** https://tfa-booking-site.onrender.com (Stripe test mode, so use card `4242 4242 4242 4242`)
+- **API docs:** https://tfa-booking-api.onrender.com/docs
+- **Demo video (78 sec):** https://youtu.be/N4UZ94rTgEA
 
 > Hosted on free tiers, so the first load can take about 30 seconds while the server wakes up.
 
